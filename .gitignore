@@ -53,3 +53,14 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# STM32CubeIDE
+Debug/
+Release/
+.settings/
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.synctex.gz
