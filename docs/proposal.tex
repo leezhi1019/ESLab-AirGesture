@@ -1,124 +1,137 @@
 % ESLab Term Project Proposal -- compile with XeLaTeX
-\documentclass[10pt]{extarticle}
-\usepackage[a5paper, margin = 1.5cm]{geometry}%A5 paper size, 1.5cm margin
+\documentclass[12pt]{extarticle}
+\usepackage[a4paper, margin = 2.5cm]{geometry}%A4 paper size, 2.5cm margin
 \usepackage{xeCJK}%For Chinese typesetting
 \usepackage{indentfirst}%Indent the first paragraph of each section
 \usepackage{fontspec}%For font selection
 \setmainfont{Times New Roman}%Set main font to Times New Roman
 \setCJKmainfont[AutoFakeBold=4, AutoFakeSlant=0.2]{Kaiti TC}%Set main CJK font to Kaiti TC with fake bold and slant
+\setCJKmonofont{Kaiti TC}%Provide a CJK fallback for monospaced contexts
 \usepackage{amsmath, amssymb, graphicx, float, caption, hyperref, bookmark, booktabs, fancyhdr}%Various useful packages
 \hypersetup{colorlinks=true, allcolors=black, pdfstartview=Fit, breaklinks=true}%Hyperlink settings
 \usepackage{titlesec}%For section title formatting
 \usepackage{tabularx, array, enumitem, xurl}%Tables, lists, URL line breaks
 \usepackage{tikz}%System diagram
-\usetikzlibrary{positioning, arrows.meta, fit, backgrounds}
+\usetikzlibrary{positioning, arrows.meta, fit, backgrounds, calc}
 \pagestyle{fancy}
+\setlength{\headheight}{15pt}
 \rhead{}
 \lhead{}
 \chead{}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0.4pt}
-\lhead{ESLab}
-\rhead{Final Project Proposal}
+\lhead{嵌入式系統實驗}
+\rhead{期末專題提案}
 \cfoot{\thepage}
 \captionsetup{font=small, labelformat=empty}
 \setlist{itemsep=0.1em, topsep=0.3em}
 \renewcommand{\arraystretch}{1.25}
-\setlength{\tabcolsep}{3pt}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 
 \begin{document}
 
 \begin{center}
-{\LARGE\bfseries AirGesture}\\[0.4em]
-{\large 以 STM32 IoT Node 即時手勢辨識的 BLE 無線遙控器}\\[0.6em]
-{\small 電工實驗（嵌入式系統）EE3021 期末專題提案}
+{\LARGE\bfseries AirTaiko}\\[0.4em]
+{\large 以兩塊 STM32 IoT Node 作為無線鼓棒的太鼓節奏遊戲}\\[0.6em]
+{\small 電工實驗（嵌入式系統）期末專題提案}
 \end{center}
 
 \section{題目、GitHub Repo 與組員}
 
-把 STM32 IoT node 拿在手上或綁在手腕上，揮動手勢（左揮、右揮、上舉、下壓、畫圈、搖晃）由板子自己即時辨識，
-再透過 BLE 把辨識結果傳給 RPi 或電腦，用來翻簡報、控制音樂或玩小遊戲。
+兩手各拿一塊 STM32 IoT node 當鼓棒，在空中敲打。板子即時偵測敲擊並判斷是「咚」（鼓面）還是「咔」（鼓邊），
+透過 BLE 把打擊事件傳到電腦；電腦上執行我們自製的太鼓節奏遊戲，音符隨音樂捲動，依打擊時間判定「良／可／不可」並計分。
 
 \noindent{\small\begin{tabularx}{\linewidth}{@{}lY@{}}
 \toprule
-題目 & AirGesture：以 STM32 IoT Node 即時手勢辨識的 BLE 無線遙控器 \\
-GitHub repo & \url{https://github.com/leezhi1019/ESLab-AirGesture}（待建立） \\
+題目 & AirTaiko：以兩塊 STM32 IoT Node 作為無線鼓棒的太鼓節奏遊戲 \\
+GitHub repo & \url{https://github.com/leezhi1019/ESLab-FinalProject} \\
 組員 & 李健誌、黃琮堡、莊景皓 \\
-開發板 & STM32 B-L475E-IOT01A（必要）、Raspberry Pi 4（選用，作 BLE 接收端與顯示介面） \\
-無線通訊 & BLE（STM32 為 GATT server，RPi／電腦為 GATT client） \\
+開發板 & STM32 B-L475E-IOT01A × 2（左右鼓棒，必要） \\
+無線通訊 & BLE（兩塊 STM32 皆為 GATT server，電腦為 GATT client 同時連線） \\
+遊戲端 & 電腦上以 Python（pygame）自製遊戲畫面 \\
 \bottomrule
 \end{tabularx}}
 
 \section{動機}
 
-本專題延伸自 HW1、HW4、HW6、HW7，把各份作業練過的技術串成一個完整的 IoT 應用：
+本專題延伸自 HW1、HW4、HW6、HW7：
 \begin{itemize}
-  \item \textbf{HW4} 已讓 STM32 作為 BLE GATT server，把加速度計數值 notify 給 RPi，但只傳原始資料。
-  \item \textbf{HW7} 用 CMSIS-DSP 實作低通濾波，但濾完的資料沒有拿來做判斷。
-  \item \textbf{HW1、HW6} 練習了 timer 中斷、semaphore 與多個 RTOS task 的分工。
+  \item \textbf{HW4}：STM32 作為 BLE GATT server，把加速度計數值 notify 給 client。這次改成只傳「打擊事件」，並同時連兩塊板子。
+  \item \textbf{HW7}：CMSIS-DSP 數位濾波。這次濾波後要即時做峰值偵測與分類，而不只是顯示波形。
+  \item \textbf{HW1、HW6}：timer 中斷觸發取樣、semaphore 與多個 RTOS task 分工。這次取樣率提高到 400 Hz，對時間精準度要求更高。
 \end{itemize}
-這次要讓板子自己「看懂」資料：在 MCU 上完成濾波、特徵擷取與手勢分類，只把辨識結果傳出去。
-這正好對應課程期末專題要求的三項技術：多執行緒 RTOS 設計、感測資料的收集處理與傳輸、程式最佳化（定點運算、省電）。
 
-手勢遙控器也容易展示：demo 時直接揮手翻自己的簡報，台下馬上看得懂系統在做什麼，
-與歷屆的空氣爵士鼓、空氣投籃機屬於同一類有互動感的作品。
+歷屆作品「空氣爵士鼓」證明了用 STM32 偵測敲擊可行，但它是自由演奏，打到就發聲，無法衡量打得準不準。
+本專題的不同在於：
+\begin{enumerate}
+  \item \textbf{有遊戲畫面與譜面}：我們自製節奏遊戲，包含音符捲動、判定、連擊與計分。
+  \item \textbf{時間判定}：節奏遊戲對延遲非常敏感，必須量化並壓低「敲擊 → 判定」的端到端延遲，並提供延遲校正。
+  \item \textbf{咚／咔分類與大音符}：依揮動方向分出咚、咔，兩手同時敲擊則判定為大音符，需要對齊兩塊板子的事件時間。
+\end{enumerate}
+這三點分別對應課程要求的多執行緒 RTOS 設計、感測資料處理與傳輸，以及效能最佳化。
 
 \section{預定作法}
 
-系統分為三段：STM32 取樣並辨識手勢、BLE 只傳辨識結果、接收端把手勢轉成電腦操作。
+系統分為三段：兩塊 STM32 各自偵測敲擊、BLE 只傳打擊事件、電腦端遊戲依時間判定並顯示。
 
 \begin{figure}[H]
 \centering
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
   font=\small,
-  blk/.style={draw, rounded corners=3pt, minimum width=2.7cm, minimum height=1.35cm, align=center, fill=white},
+  blk/.style={draw, rounded corners=3pt, minimum width=2.6cm, minimum height=1.25cm, align=center, fill=white},
   hot/.style={blk, draw=blue!60!black, fill=blue!8, line width=0.9pt},
   arr/.style={-{Stealth[length=2.2mm]}, thick},
   lbl/.style={font=\footnotesize, text=black!65}
 ]
-\node[blk] (sen) {\textbf{LSM6DSL}\\[-1pt]{\footnotesize 加速度＋陀螺儀}};
-\node[blk, right=1.1cm of sen] (ts) {\textbf{Task\_Sensor}\\[-1pt]{\footnotesize Timer 中斷 100 Hz}};
-\node[hot, right=1.3cm of ts] (td) {\textbf{Task\_DSP}\\[-1pt]{\footnotesize 濾波・切段・分類}};
-\node[blk, below=1.0cm of ts] (btn) {\textbf{User Button}\\[-1pt]{\footnotesize EXTI 切換模式}};
-\node[blk, below=1.0cm of td] (tb) {\textbf{Task\_BLE}\\[-1pt]{\footnotesize GATT server}};
-\node[blk, right=1.9cm of tb, minimum width=3.0cm] (rx) {\textbf{RPi／電腦}\\[-1pt]{\footnotesize Python 訂閱手勢}\\[-1pt]{\footnotesize 送鍵盤事件}};
+% left stick
+\node[blk] (s1) {\textbf{LSM6DSL}\\[-1pt]{\footnotesize 400 Hz 取樣}};
+\node[hot, right=1.0cm of s1] (d1) {\textbf{Task\_DSP}\\[-1pt]{\footnotesize 偵測、咚咔分類}};
+\node[blk, right=1.0cm of d1] (b1) {\textbf{Task\_BLE}\\[-1pt]{\footnotesize notify 事件}};
+% right stick
+\node[blk, below=1.5cm of s1] (s2) {\textbf{LSM6DSL}\\[-1pt]{\footnotesize 400 Hz 取樣}};
+\node[hot, right=1.0cm of s2] (d2) {\textbf{Task\_DSP}\\[-1pt]{\footnotesize 偵測、咚咔分類}};
+\node[blk, right=1.0cm of d2] (b2) {\textbf{Task\_BLE}\\[-1pt]{\footnotesize notify 事件}};
+% PC
+\node[blk, minimum width=3.4cm, minimum height=3.9cm, right=2.0cm of $(b1)!0.5!(b2)$, anchor=west] (pc)
+  {\textbf{電腦（pygame）}\\[4pt]{\footnotesize 合併兩支鼓棒事件}\\{\footnotesize 大音符判定}\\{\footnotesize 良／可／不可}\\{\footnotesize 譜面捲動、計分}};
 \begin{scope}[on background layer]
-  \node[draw=black!40, fill=black!4, rounded corners=4pt, inner sep=9pt, fit=(sen)(ts)(td)(btn)(tb),
-        label={[anchor=south west, font=\small\bfseries]north west:STM32 B-L475E-IOT01A（FreeRTOS）}] {};
+  \node[draw=black!40, fill=black!4, rounded corners=4pt, inner sep=8pt, fit=(s1)(d1)(b1),
+        label={[anchor=south west, font=\small\bfseries]north west:左鼓棒：STM32 \#1（FreeRTOS）}] (L) {};
+  \node[draw=black!40, fill=black!4, rounded corners=4pt, inner sep=8pt, fit=(s2)(d2)(b2),
+        label={[anchor=south west, font=\small\bfseries]north west:右鼓棒：STM32 \#2（FreeRTOS）}] (R) {};
 \end{scope}
-\draw[arr] (sen) -- node[lbl, above]{I2C} (ts);
-\draw[arr] (ts) -- node[lbl, above]{queue} (td);
-\draw[arr] (td) -- node[lbl, right]{手勢結果} (tb);
-\draw[arr] (btn) -- node[lbl, above]{模式} (tb);
-\draw[arr] ([yshift=5pt]tb.east) -- node[lbl, above]{notify} ([yshift=5pt]rx.west);
-\draw[arr] ([yshift=-5pt]rx.west) -- node[lbl, below]{write 設定} ([yshift=-5pt]tb.east);
+\draw[arr] (s1) -- node[lbl, above]{queue} (d1);
+\draw[arr] (d1) -- node[lbl, above]{事件} (b1);
+\draw[arr] (s2) -- node[lbl, above]{queue} (d2);
+\draw[arr] (d2) -- node[lbl, above]{事件} (b2);
+\draw[arr] (b1.east) -- node[lbl, above, sloped]{BLE} (pc.west |- b1.east);
+\draw[arr] (b2.east) -- node[lbl, below, sloped]{BLE} (pc.west |- b2.east);
 \end{tikzpicture}}
-\caption{圖 1　系統架構：手勢在 STM32 上辨識完成，BLE 只傳結果，接收端可回寫模式與取樣頻率。}
+\caption{圖 1　系統架構：敲擊在各自的 STM32 上偵測與分類，BLE 只傳打擊事件，電腦端合併兩支鼓棒並依時間判定。}
 \end{figure}
 
-\subsection{STM32 上的 RTOS 任務}
+\subsection{STM32 上的 RTOS 任務（兩塊板子相同韌體）}
 
-\noindent{\small\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}p{2.3cm} Y l@{}}
+\noindent{\small\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} Y Y l@{}}
 \toprule
-Task & 優先 & 觸發方式 & 工作內容 & 延伸自 \\
+Task（優先權） & 觸發方式 & 工作內容 & 延伸自 \\
 \midrule
-Task\_Sensor & 最高 & Timer 中斷每 10 ms 給 semaphore（100 Hz） & 讀 LSM6DSL 加速度計＋陀螺儀共 6 軸，放入 queue & HW1、HW6 \\
-Task\_DSP & 中 & 從 queue 收資料 & CMSIS-DSP FIR 低通濾波、判斷動作起訖、計算特徵、分類手勢 & HW7 \\
-Task\_BLE & 低 & 辨識結果或 GATT 事件 & 處理連線／斷線、notify 手勢結果、接收設定寫入 & HW4 \\
+Task\_Sensor（最高） & Timer 中斷每 2.5 ms 給 semaphore（400 Hz） & 讀 LSM6DSL 加速度計＋陀螺儀共 6 軸，加上時間戳放入 queue & HW1、6 \\
+Task\_DSP（中） & 從 queue 收資料 & 濾波、峰值偵測、去彈跳、咚／咔分類、估計力道 & HW7 \\
+Task\_BLE（低） & 打擊事件或 GATT 事件 & 連線／斷線、notify 打擊事件、接收設定寫入 & HW4 \\
 \bottomrule
 \end{tabularx}}
 
-另外以 user button 的 EXTI 中斷切換模式（簡報模式、音樂模式、資料蒐集模式），並用 LED 回饋目前模式與辨識成功（延伸自 HW1）。
+開機時以 user button 設定這塊板子是左手或右手，並用 LED 閃爍回饋每次偵測到的敲擊（延伸自 HW1）。
 
-\subsection{手勢辨識流程}
+\subsection{敲擊偵測與咚／咔分類}
 \begin{enumerate}
-  \item \textbf{濾波}：6 軸資料先經 FIR 低通，濾掉手抖與雜訊。
-  \item \textbf{切段}：加速度大小超過門檻視為動作開始，連續一段時間低於門檻視為結束；每個完整動作只輸出一次結果。
-  \item \textbf{特徵}：每軸的平均、標準差、最大最小值、能量，以及陀螺儀積分出的轉動方向。
-  \item \textbf{分類}：先做門檻規則版作為保底；再用資料蒐集模式錄下每人每種手勢數十次，
-        在電腦以 Python（scikit-learn）訓練決策樹，轉成 C 程式放回 STM32。進階可嘗試 CMSIS-NN 小型神經網路。
+  \item \textbf{濾波}：以 CMSIS-DSP FIR 濾除重力等低頻成分與高頻雜訊，保留敲擊的衝擊訊號。
+  \item \textbf{峰值偵測}：加速度大小超過門檻且為局部最大值時視為一次敲擊；之後約 80 ms 內不重複觸發，避免一次敲擊被算成兩次。
+  \item \textbf{咚／咔分類}：依敲擊瞬間衝擊的主要方向判斷——往下敲為「咚」，往外側揮為「咔」。先用門檻規則實作，
+        再錄下每人每種敲法數十次，檢查準確率並調整門檻；必要時改用簡單的決策樹。
+  \item \textbf{力道}：以峰值大小估計，作為遊戲中的音量與特效依據。
 \end{enumerate}
 
 \subsection{BLE GATT 設計}
@@ -127,35 +140,45 @@ Task\_BLE & 低 & 辨識結果或 GATT 事件 & 處理連線／斷線、notify �
 \toprule
 Characteristic & 屬性 & 內容 \\
 \midrule
-Gesture & Notify & 手勢編號、信心值、時間戳 \\
-Raw Data & Notify & 6 軸原始資料，只在資料蒐集模式開啟 \\
-Config & Write & 模式、取樣頻率、觸發門檻（延續 HW4 由 client 寫入取樣頻率的做法） \\
+Hit & Notify & 鼓棒編號、咚／咔、力道、板上時間戳 \\
+Raw Data & Notify & 6 軸原始資料，只在調校模式開啟，用來錄資料與調門檻 \\
+Config & Write & 偵測門檻、取樣頻率、模式（延續 HW4 由 client 寫入設定的做法） \\
 \bottomrule
 \end{tabularx}}
 
-接收端以 Python（RPi 上的 bluepy 或電腦上的 bleak）訂閱 Gesture，收到後送出鍵盤事件翻簡報或控制音樂，
-GUI 同時畫出即時波形與辨識結果。
+為降低延遲，連線時要求最短的 connection interval（7.5 ms），讓事件能盡快送出。
 
-\subsection{最佳化}
+\subsection{電腦端遊戲}
 \begin{itemize}
-  \item \textbf{定點運算}：FIR 分別以 float32 與 q15 實作，用 DWT cycle counter 比較執行時間與濾波誤差。
-  \item \textbf{省電}：只傳手勢事件而非連續串流原始資料，降低 BLE 傳輸量；閒置時以 LSM6DSL 的 wake-up 中斷喚醒，
-        其餘時間 task 阻塞、MCU 進入 idle（FreeRTOS tickless idle）。
+  \item \textbf{畫面}：以 pygame 自製，包含音符從右往左捲動、判定區、判定文字、連擊數與分數。
+  \item \textbf{譜面}：以簡單的文字檔記錄歌曲 BPM 與每個音符的拍點與種類（咚、咔、大咚、大咔），至少做 2 首歌。
+  \item \textbf{判定}：打擊時間與音符時間相差 $\pm$50 ms 內為「良」、$\pm$100 ms 內為「可」，其餘為「不可」（窗口可調）。
+        兩支鼓棒在 40 ms 內同時打同一種，判定為大音符。
+  \item \textbf{延遲校正}：遊戲提供校正模式，玩家跟著節拍器敲擊，自動估計系統延遲並套用補償。
+\end{itemize}
+
+\subsection{量測與最佳化}
+\begin{itemize}
+  \item \textbf{板上偵測延遲}：偵測到敲擊時拉高 GPIO，用邏輯分析儀量測 Task\_DSP 的處理時間（延伸自 HW5）。
+  \item \textbf{端到端延遲}：用手機 240 fps 慢動作同時拍攝敲擊動作與螢幕，計算「敲擊 → 畫面判定」的延遲分布。
+  \item \textbf{定點運算}：FIR 分別以 float32 與 q15 實作，用 DWT cycle counter 比較執行時間與誤差。
+  \item \textbf{傳輸量}：只傳打擊事件，相較於連續串流原始資料（400 Hz × 6 軸 × 2 bytes ≈ 4.8 KB/s）大幅降低。
 \end{itemize}
 
 \section{預期結果與時程}
 
-期末 demo 時拿著 STM32 揮手就能翻自己的簡報，並以數據說明辨識準確率、延遲與最佳化效果。
+期末 demo 時兩手拿著 STM32 打完一首歌，畫面即時顯示判定與分數，並以數據說明偵測準確率與延遲。
 
 \noindent{\small\begin{tabularx}{\linewidth}{@{}l Y@{}}
 \toprule
 指標 & 目標 \\
 \midrule
-手勢種類 & 至少 4 種（左揮、右揮、上舉、下壓），進階 6 種（加畫圈、搖晃） \\
-辨識準確率 & 三位組員各做每種手勢 20 次，整體 $\geq$ 90\% \\
-反應延遲 & 動作結束到電腦執行操作 $<$ 300 ms \\
+敲擊偵測 & 漏打與誤觸各 $<$ 5\% \\
+咚／咔分類 & 三位組員各敲每種 30 次，準確率 $\geq$ 90\% \\
+大音符 & 兩手同時敲擊的判定成功率 $\geq$ 85\% \\
+端到端延遲 & 敲擊到畫面判定 $<$ 50 ms（校正前量測，校正後補償） \\
+遊戲內容 & 自製遊戲畫面＋至少 2 首譜面，可完整玩完一首 \\
 定點加速 & 量出 q15 相對 float32 的 FIR 執行時間與誤差 \\
-BLE 傳輸量 & 原始串流約 1200 B/s（100 Hz × 6 軸 × 2 bytes），改為只傳手勢事件後大幅降低 \\
 \bottomrule
 \end{tabularx}}
 
@@ -164,33 +187,33 @@ BLE 傳輸量 & 原始串流約 1200 B/s（100 Hz × 6 軸 × 2 bytes），改�
 \toprule
 週次 & 工作 \\
 \midrule
-Week 11 & Proposal 報告；建立 repo，把 HW4 的 BLE GATT server 與 HW7 的 FIR 合進同一專案 \\
-Week 12 & 三個 task 跑起來；完成資料蒐集模式，開始錄手勢資料 \\
-Week 13 & 規則版辨識可用，接收端能翻簡報（Progress 報告） \\
-Week 14 & 訓練決策樹並移植到 STM32；q15 與 float32 比較 \\
-Week 15 & 省電功能、準確率與延遲測試、整理 demo \\
+Week 11 & Proposal 報告；以 HW4 的 BLE GATT server 為基礎建立專案；遊戲畫面雛形 \\
+Week 12 & 單塊板子 400 Hz 取樣與敲擊偵測；電腦端收到事件並在畫面上顯示 \\
+Week 13 & 咚／咔分類；兩塊板子同時連線；譜面與判定可玩（Progress 報告） \\
+Week 14 & 大音符、延遲校正模式；q15 與 float32 比較 \\
+Week 15 & 準確率與延遲量測、第二首譜面、整理 demo \\
 \bottomrule
 \end{tabularx}}
 
 \subsection*{分工}
 \begin{itemize}
-  \item 李健誌：STM32 RTOS 架構與 BLE GATT server
-  \item 黃琮堡：DSP 濾波、特徵擷取與分類模型
-  \item 莊景皓：接收端 GUI、資料蒐集與測試
+  \item 李健誌：STM32 RTOS 架構、BLE GATT server 與雙板連線
+  \item 黃琮堡：敲擊偵測、咚／咔分類與 DSP 最佳化
+  \item 莊景皓：pygame 遊戲畫面、譜面與判定系統
 \end{itemize}
-（分工為暫定，可依組員意願調整。）
+（分工為暫定，可依組員意願調整；延遲量測三人一起做。）
 
 \section{參考資料}
 \begin{enumerate}[label={[\arabic*]}]
   \item 課程講義：CMSIS-RTOS2、STM32 IoT Node Onboard Sensors、BLE Introduction Labs、Data Acquisition、CMSIS-DSP CubeIDE、STM32 Timer and PWM。
-  \item 本組 HW1（RTOS API）、HW4（BLE GATT server）、HW6（Timer＋ADC＋DMA）、HW7（CMSIS-DSP）程式碼。
+  \item 本組 HW1（RTOS API）、HW4（BLE GATT server）、HW5（PWM 與邏輯分析儀）、HW6（Timer＋ADC＋DMA）、HW7（CMSIS-DSP）程式碼。
+  \item 嵌入式系統專題簡介（歷屆期末展示：空氣爵士鼓）。
   \item STMicroelectronics, \href{https://www.st.com/en/evaluation-tools/b-l475e-iot01a.html}{B-L475E-IOT01A Discovery kit for IoT node}.
   \item STMicroelectronics, \href{https://www.st.com/resource/en/datasheet/lsm6dsl.pdf}{LSM6DSL datasheet}.
-  \item STMicroelectronics, \href{https://www.st.com/resource/en/application_note/an5040-lsm6dsl-alwayson-3d-accelerometer-and-3d-gyroscope-stmicroelectronics.pdf}{AN5040: LSM6DSL always-on 3D accelerometer and 3D gyroscope}.
   \item Arm, \href{https://github.com/ARM-software/CMSIS-DSP}{CMSIS-DSP}.
-  \item L. Lai, N. Suda, V. Chandra, ``CMSIS-NN: Efficient Neural Network Kernels for Arm Cortex-M CPUs,'' arXiv:1801.06601, 2018.
   \item \href{https://github.com/hbldh/bleak}{bleak: Bluetooth Low Energy platform agnostic client for Python}.
-  \item \href{https://scikit-learn.org/stable/modules/tree.html}{scikit-learn: Decision Trees}.
+  \item \href{https://www.pygame.org/docs/}{pygame documentation}.
+  \item Bandai Namco,《太鼓之達人》（遊戲玩法與判定概念參考）。
 \end{enumerate}
 
 \end{document}

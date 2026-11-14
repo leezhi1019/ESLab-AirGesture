@@ -1,0 +1,250 @@
+% AirTaiko proposal slides -- compile with XeLaTeX
+\documentclass[aspectratio=169, 12pt]{beamer}
+\usepackage{xeCJK}%For Chinese typesetting
+\usepackage{fontspec}%For font selection
+\setmainfont{Times New Roman}
+\setsansfont{Times New Roman}
+\setCJKmainfont[AutoFakeBold=4, AutoFakeSlant=0.2]{Kaiti TC}
+\setCJKsansfont[AutoFakeBold=4, AutoFakeSlant=0.2]{Kaiti TC}
+\setCJKmonofont{Kaiti TC}
+\usepackage{booktabs, tabularx, array}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, fit, backgrounds, calc}
+
+% ---------- minimal look ----------
+\definecolor{taikored}{RGB}{200,45,35}
+\definecolor{taikoblue}{RGB}{40,110,190}
+\definecolor{ink}{RGB}{35,35,40}
+\definecolor{quiet}{RGB}{110,110,118}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=ink}
+\setbeamercolor{frametitle}{fg=ink}
+\setbeamercolor{structure}{fg=taikored}
+\setbeamerfont{frametitle}{size=\Large, series=\bfseries}
+\setbeamertemplate{frametitle}{\vspace{0.6em}\insertframetitle\par\vspace{0.15em}{\color{taikored}\rule{2.2cm}{2pt}}}
+\setbeamertemplate{itemize items}{\color{taikored}$\bullet$}
+\setbeamertemplate{footline}{\hfill{\scriptsize\color{quiet}AirTaiko\quad\insertframenumber/\inserttotalframenumber}\hspace{1.2em}\vspace{0.8em}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.25}
+
+\title{AirTaiko}
+\subtitle{以兩塊 STM32 IoT Node 作為無線鼓棒的太鼓節奏遊戲}
+\author{李健誌、黃琮堡、莊景皓}
+\date{嵌入式系統實驗　期末專題提案}
+
+\begin{document}
+
+% ---------- 1 title ----------
+{\setbeamertemplate{footline}{}
+\begin{frame}
+\vfill
+{\fontsize{40}{44}\selectfont\bfseries AirTaiko}\par\vspace{0.4em}
+{\large 以兩塊 STM32 IoT Node 作為無線鼓棒的太鼓節奏遊戲}\par
+{\color{taikored}\rule{3cm}{2pt}}\par\vspace{1.2em}
+{\color{quiet} 李健誌、黃琮堡、莊景皓}\par
+{\small\color{quiet} 嵌入式系統實驗　期末專題提案}\par
+{\small\color{quiet}\texttt{github.com/leezhi1019/ESLab-FinalProject}}
+\vfill
+\end{frame}}
+
+% ---------- 2 what ----------
+\begin{frame}{我們要做什麼}
+兩手各拿一塊 STM32 當鼓棒在空中敲，電腦上跑我們自製的太鼓遊戲。
+\vspace{1.2em}
+\begin{center}
+\begin{tikzpicture}[font=\small,
+  card/.style={draw=quiet!60, rounded corners=4pt, minimum width=3.3cm, minimum height=2.0cm, align=center, fill=white},
+  arr/.style={-{Stealth[length=2.5mm]}, very thick, quiet}]
+\node[card] (a) {{\Large 敲擊}\\[4pt]STM32 偵測\\往下＝{\color{taikored}\textbf{咚}}　往側＝{\color{taikoblue}\textbf{咔}}};
+\node[card, right=1.4cm of a] (b) {{\Large 傳送}\\[4pt]BLE 只傳\\打擊事件};
+\node[card, right=1.4cm of b] (c) {{\Large 判定}\\[4pt]遊戲依時間判定\\良／可／不可};
+\draw[arr] (a) -- (b); \draw[arr] (b) -- (c);
+\end{tikzpicture}
+\end{center}
+\vspace{1em}
+{\small\color{quiet} 延伸自 HW1（RTOS）、HW4（BLE GATT server）、HW5（邏輯分析儀）、HW6（Timer 取樣）、HW7（CMSIS-DSP）}
+\end{frame}
+
+% ---------- 3 vs jazz drum ----------
+\begin{frame}{和歷屆「空氣爵士鼓」有什麼不同}
+空氣爵士鼓是自由演奏：打到就發聲，無法衡量打得準不準。我們多了三件事：
+\vspace{0.8em}
+\begin{columns}[T]
+\begin{column}{0.31\textwidth}
+\textbf{\color{taikored}1. 自製遊戲畫面}\par\vspace{0.3em}
+{\small 音符捲動、譜面、判定、連擊與計分，全部自己寫。}
+\end{column}
+\begin{column}{0.31\textwidth}
+\textbf{\color{taikored}2. 時間判定}\par\vspace{0.3em}
+{\small 節奏遊戲對延遲很敏感，要量化並壓低「敲擊 → 判定」的延遲，並提供校正。}
+\end{column}
+\begin{column}{0.31\textwidth}
+\textbf{\color{taikored}3. 咚／咔與大音符}\par\vspace{0.3em}
+{\small 依揮動方向分咚、咔；兩手同時敲判定為大音符，需對齊兩塊板子的時間。}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ---------- 4 architecture ----------
+\begin{frame}{系統架構}
+\begin{center}
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[font=\small,
+  blk/.style={draw, rounded corners=3pt, minimum width=2.6cm, minimum height=1.2cm, align=center, fill=white},
+  hot/.style={blk, draw=taikored, fill=taikored!8, line width=0.9pt},
+  arr/.style={-{Stealth[length=2.2mm]}, thick},
+  lbl/.style={font=\footnotesize, text=quiet}]
+\node[blk] (s1) {\textbf{LSM6DSL}\\[-1pt]{\footnotesize 400 Hz 取樣}};
+\node[hot, right=1.1cm of s1] (d1) {\textbf{Task\_DSP}\\[-1pt]{\footnotesize 偵測、咚咔分類}};
+\node[blk, right=1.1cm of d1] (b1) {\textbf{Task\_BLE}\\[-1pt]{\footnotesize notify 事件}};
+\node[blk, below=1.6cm of s1] (s2) {\textbf{LSM6DSL}\\[-1pt]{\footnotesize 400 Hz 取樣}};
+\node[hot, right=1.1cm of s2] (d2) {\textbf{Task\_DSP}\\[-1pt]{\footnotesize 偵測、咚咔分類}};
+\node[blk, right=1.1cm of d2] (b2) {\textbf{Task\_BLE}\\[-1pt]{\footnotesize notify 事件}};
+\node[blk, minimum width=3.4cm, minimum height=4.0cm, anchor=west] (pc) at ($(b1.east)!0.5!(b2.east)+(2.0,0)$)
+  {\textbf{電腦（pygame）}\\[5pt]{\footnotesize 合併兩支鼓棒}\\{\footnotesize 大音符判定}\\{\footnotesize 良／可／不可}\\{\footnotesize 譜面捲動、計分}};
+\begin{scope}[on background layer]
+  \node[draw=quiet!50, fill=black!3, rounded corners=4pt, inner sep=8pt, fit=(s1)(d1)(b1),
+        label={[anchor=south west, font=\small\bfseries]north west:左鼓棒　STM32 \#1（FreeRTOS）}] {};
+  \node[draw=quiet!50, fill=black!3, rounded corners=4pt, inner sep=8pt, fit=(s2)(d2)(b2),
+        label={[anchor=south west, font=\small\bfseries]north west:右鼓棒　STM32 \#2（FreeRTOS）}] {};
+\end{scope}
+\draw[arr] (s1) -- node[lbl, above]{queue} (d1);
+\draw[arr] (d1) -- node[lbl, above]{事件} (b1);
+\draw[arr] (s2) -- node[lbl, above]{queue} (d2);
+\draw[arr] (d2) -- node[lbl, above]{事件} (b2);
+\draw[arr] (b1.east) -- node[lbl, above]{BLE} (pc.west |- b1.east);
+\draw[arr] (b2.east) -- node[lbl, below]{BLE} (pc.west |- b2.east);
+\end{tikzpicture}}
+\end{center}
+{\small 敲擊在各自的 STM32 上偵測與分類，BLE 只傳打擊事件（鼓棒、咚／咔、力道、時間戳）。}
+\end{frame}
+
+% ---------- 5 firmware ----------
+\begin{frame}{STM32 端：三個 RTOS 任務}
+\begingroup\footnotesize\begin{tabularx}{\textwidth}{@{}l l Y@{}}
+\toprule
+Task & 觸發 & 工作 \\
+\midrule
+Task\_Sensor（最高） & Timer 每 2.5 ms 給 semaphore & 讀 LSM6DSL 6 軸資料加時間戳，放入 queue \\
+Task\_DSP（中） & 從 queue 收資料 & 濾波、峰值偵測、去彈跳、咚／咔分類、估計力道 \\
+Task\_BLE（低） & 打擊事件或 GATT 事件 & 連線管理、notify 打擊事件、接收設定 \\
+\bottomrule
+\end{tabularx}\endgroup
+\vspace{0.2em}
+\begin{itemize}\small
+  \item \textbf{偵測}：FIR 濾掉重力與雜訊 → 超過門檻的局部峰值算一次敲擊 → 80 ms 內不重複觸發
+  \item \textbf{分類}：看衝擊的主要方向，往下是咚、往側是咔；先用門檻，不夠準再換決策樹
+  \item \textbf{BLE}：connection interval 設最短 7.5 ms，降低傳輸延遲
+\end{itemize}
+\end{frame}
+
+% ---------- 6 game ----------
+\begin{frame}{電腦端：自製太鼓遊戲}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+  \item \textbf{畫面}：pygame，音符由右往左捲動，判定區、連擊、分數
+  \item \textbf{譜面}：文字檔記錄 BPM 與音符拍點，至少 2 首歌
+  \item \textbf{判定}：$\pm$50 ms 良、$\pm$100 ms 可，其餘不可
+  \item \textbf{大音符}：兩支鼓棒 40 ms 內同時打同一種
+  \item \textbf{延遲校正}：跟著節拍器敲，自動算出補償量
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{center}
+\begin{tikzpicture}[font=\small]
+\fill[black!5, rounded corners=3pt] (0,0) rectangle (6,2.2);
+\draw[quiet!60, rounded corners=3pt] (0,0) rectangle (6,2.2);
+\draw[quiet, thick] (1.0,1.1) circle (0.45);
+\node[font=\scriptsize, quiet] at (1.0,0.35) {判定區};
+\fill[taikored] (2.3,1.1) circle (0.3);
+\fill[taikoblue] (3.3,1.1) circle (0.3);
+\fill[taikored] (4.1,1.1) circle (0.3);
+\fill[taikored] (5.2,1.1) circle (0.42);
+\node[font=\scriptsize, quiet] at (5.2,0.35) {大咚};
+\draw[-{Stealth}, quiet] (5.6,1.95) -- (4.4,1.95);
+\node[font=\bfseries, taikored] at (1.0,1.95) {良};
+\end{tikzpicture}\\[0.5em]
+{\scriptsize\color{quiet} 畫面示意：{\color{taikored}紅＝咚}、{\color{taikoblue}藍＝咔}}
+\end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ---------- 7 targets ----------
+\begin{frame}{預期成果}
+\begingroup\small\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+項目 & 目標 \\
+\midrule
+敲擊偵測 & 漏打與誤觸各 $<$ 5\% \\
+咚／咔分類 & 三人各敲每種 30 次，準確率 $\geq$ 90\% \\
+大音符 & 兩手同時敲擊判定成功率 $\geq$ 85\% \\
+端到端延遲 & 敲擊到畫面判定 $<$ 50 ms（手機 240 fps 慢動作量測） \\
+最佳化 & FIR 的 q15 與 float32 版本比較執行時間與誤差 \\
+遊戲 & 自製畫面＋至少 2 首譜面，可完整玩完一首 \\
+\bottomrule
+\end{tabularx}\endgroup
+\vspace{0.8em}
+
+{\small 期末 demo：兩手拿 STM32 打完一首歌，畫面即時顯示判定與分數。}
+\end{frame}
+
+% ---------- 8 schedule ----------
+\begin{frame}{每週進度}
+\begin{center}
+\begin{tikzpicture}[font=\small]
+\def\W{2.6}
+\draw[quiet!60, line width=1.5pt] (0,0) -- (5*\W-0.6,0);
+\foreach \i/\wk/\d/\hot in {0/Week 11/11\slash 19/0, 1/Week 12/11\slash 26/0, 2/Week 13/12\slash 3/1, 3/Week 14/12\slash 10/1, 4/Week 15/12\slash 17/0}{
+  \pgfmathsetmacro\x{\i*\W}
+  \ifnum\hot=1
+    \fill[taikored] (\x,0) circle (5pt);
+  \else
+    \fill[white] (\x,0) circle (5pt); \draw[taikored, thick] (\x,0) circle (5pt);
+  \fi
+  \node[font=\small\bfseries, anchor=south] at (\x,0.3) {\wk};
+  \node[font=\scriptsize, quiet, anchor=south] at (\x,0.8) {\d};
+}
+\node[text width=2.5cm, align=left, anchor=north west, font=\footnotesize] at (-0.2,-0.4)
+  {Proposal 報告\\以 HW4 建立專案\\遊戲畫面雛形\\電腦收到假事件};
+\node[text width=2.5cm, align=left, anchor=north west, font=\footnotesize] at (\W-0.2,-0.4)
+  {400 Hz 取樣\\單板敲擊偵測\\判定與計分\\敲一下畫面出判定};
+\node[text width=2.5cm, align=left, anchor=north west, font=\footnotesize] at (2*\W-0.2,-0.4)
+  {咚／咔分類\\兩塊板子同時連線\\第一首歌能玩完};
+\node[text width=2.5cm, align=left, anchor=north west, font=\footnotesize] at (3*\W-0.2,-0.4)
+  {大音符\\延遲校正模式\\q15／float32 比較\\Progress 報告};
+\node[text width=2.5cm, align=left, anchor=north west, font=\footnotesize] at (4*\W-0.2,-0.4)
+  {延遲與準確率量測\\第二首歌\\demo 彩排};
+\end{tikzpicture}
+\end{center}
+\vspace{0.3em}
+{\scriptsize\color{quiet} 實心點為關鍵週：Week 13 完成可玩版本，Week 14 Progress and Technology 報告。}
+\end{frame}
+
+% ---------- 9 risks ----------
+\begin{frame}{風險與備案}
+\begingroup\small\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.2cm} Y@{}}
+\toprule
+風險 & 備案 \\
+\midrule
+咚／咔分不準 & 改成左手固定咚、右手固定咔 \\
+BLE 延遲太大 & 加強延遲校正；必要時改用 USB 有線當 demo 備案 \\
+兩塊板子同時連線不穩 & 先用一塊板子完成整套 demo，再加第二塊 \\
+\bottomrule
+\end{tabularx}\endgroup
+\end{frame}
+
+% ---------- 10 end ----------
+{\setbeamertemplate{footline}{}
+\begin{frame}
+\vfill
+\begin{center}
+{\fontsize{32}{36}\selectfont\bfseries 謝謝！}\par\vspace{0.6em}
+{\color{taikored}\rule{2.2cm}{2pt}}\par\vspace{0.8em}
+{\color{quiet}\texttt{github.com/leezhi1019/ESLab-FinalProject}}
+\end{center}
+\vfill
+\end{frame}}
+
+\end{document}

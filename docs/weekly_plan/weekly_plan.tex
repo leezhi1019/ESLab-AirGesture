@@ -1,0 +1,187 @@
+% ESLab Term Project Proposal -- compile with XeLaTeX
+\documentclass[11pt]{article}
+\usepackage[a4paper, margin = 2.5cm]{geometry}%A4 paper size, 2.5cm margin
+\usepackage{xeCJK}%For Chinese typesetting
+\usepackage{indentfirst}%Indent the first paragraph of each section
+\usepackage{fontspec}%For font selection
+\setmainfont{Times New Roman}%Set main font to Times New Roman
+\setCJKmainfont[AutoFakeBold=4, AutoFakeSlant=0.2]{Kaiti TC}%Set main CJK font to Kaiti TC with fake bold and slant
+\setCJKmonofont{Kaiti TC}%Provide a CJK fallback for monospaced contexts
+\usepackage{amsmath, amssymb, graphicx, float, caption, hyperref, bookmark, booktabs, fancyhdr}%Various useful packages
+\hypersetup{colorlinks=true, allcolors=black, pdfstartview=Fit, breaklinks=true}%Hyperlink settings
+\usepackage{titlesec}%For section title formatting
+\usepackage{tabularx, array, enumitem, xurl}%Tables, lists, URL line breaks
+\usepackage{tikz}%System diagram
+\usetikzlibrary{positioning, arrows.meta, fit, backgrounds, calc}
+\pagestyle{fancy}
+\setlength{\headheight}{15pt}
+\rhead{}
+\lhead{}
+\chead{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\lhead{嵌入式系統實驗}
+\rhead{AirTaiko 週計畫}
+\cfoot{\thepage}
+\captionsetup{font=small, labelformat=empty}
+\setlist{itemsep=0.1em, topsep=0.3em}
+\renewcommand{\arraystretch}{1.25}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\todo}{$\square$\ }
+\newcommand{\who}[1]{\textbf{#1}}
+\emergencystretch=1em
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries AirTaiko 每週工作計畫}\\[0.4em]
+{\small 李健誌、黃琮堡、莊景皓 Week 11 -- Week 15}
+\end{center}
+
+每週上課（週四）前，三個人要把當週的「完成標準」做完並 push 到 GitHub；上課時互相 demo 一次，沒完成的移到下週最前面。
+日期以第 1 週為 9/7 那週推算，如有出入以課程公告為準。
+
+\noindent{\small\begin{tabularx}{\linewidth}{@{}l l Y@{}}
+\toprule
+週次 & 週四 & 里程碑 \\
+\midrule
+Week 11 & 11/19 & Proposal 報告；開發環境與 repo 架構完成 \\
+Week 12 & 11/26 & 單塊板子能偵測敲擊，電腦遊戲收到事件 \\
+Week 13 & 12/3 & 咚／咔分類＋兩塊板子同時連線＋可玩的第一首歌 \\
+Week 14 & 12/10 & 大音符、延遲校正；Progress and Technology 報告 \\
+Week 15 & 12/17 & 量測數據、第二首歌、最終 demo 彩排 \\
+\bottomrule
+\end{tabularx}}
+
+\section*{Week 11（11/16 -- 11/19）：Proposal 與環境建置}
+
+\textbf{注意}：HW7（CMSIS-DSP）截止日約為 11/20，這週要和專題同時進行。
+
+\begin{itemize}[label={}]
+  \item \who{全組}
+  \begin{itemize}[label={}]
+    \item \todo 到 Canvas「HW-presentation」登記 Week 11 報告，貼上 repo 網址
+    \item \todo 做 proposal 投影片（約 5 分鐘），報告前交「HW-Proposal」
+    \item \todo 確認有兩塊 STM32 可以用（左右鼓棒）
+  \end{itemize}
+  \item \who{李健誌}（STM32/BLE）
+  \begin{itemize}[label={}]
+    \item \todo GitHub repo 改名為 ESLab-FinalProject，邀請組員
+    \item \todo 以 HW4 的 BLE GATT server 為基礎建 CubeIDE 專案，放進 repo 的 \texttt{firmware/}
+    \item \todo 新增 Hit characteristic（先送假資料），確認電腦收得到 notify
+  \end{itemize}
+  \item \who{黃琮堡}（偵測/DSP）
+  \begin{itemize}[label={}]
+    \item \todo 用 HW7 的程式把 LSM6DSL 取樣率改到 400 Hz，用 UART 印出 6 軸資料
+    \item \todo 錄幾段「往下敲」「往側揮」的原始資料，以 CSV 存到 repo 的 \texttt{data/} 資料夾
+  \end{itemize}
+  \item \who{莊景皓}（遊戲）
+  \begin{itemize}[label={}]
+    \item \todo pygame 開出遊戲視窗：判定區、音符從右往左捲動（先用鍵盤 D／F／J／K 測試）
+    \item \todo 決定譜面文字檔格式（BPM、拍點、音符種類）
+  \end{itemize}
+\end{itemize}
+\textbf{完成標準}：proposal 報告完；電腦用 Python 收得到 STM32 送的假 Hit 事件；遊戲畫面能用鍵盤打。
+
+\section*{Week 12（11/23 -- 11/26）：單板敲擊偵測打通}
+
+\begin{itemize}[label={}]
+  \item \who{李健誌}
+  \begin{itemize}[label={}]
+    \item \todo 建好三個 task：Task\_Sensor、Task\_DSP、Task\_BLE，用 queue 串起來；\\
+    Task\_Sensor 由 timer 每 2.5 ms 給 semaphore 觸發
+    \item \todo Hit 改成送真正的偵測結果（鼓棒編號、種類、力道、時間戳）
+    \item \todo 把 connection interval 設成最短（7.5 ms）
+  \end{itemize}
+  \item \who{黃琮堡}
+  \begin{itemize}[label={}]
+    \item \todo 用 Python 分析上週錄的資料，決定濾波器與敲擊門檻
+    \item \todo 在 Task\_DSP 實作 FIR + 峰值偵測 + 80 ms 不重複觸發
+    \item \todo 偵測到敲擊時亮 LED、拉高一支 GPIO（之後量延遲用）
+  \end{itemize}
+  \item \who{莊景皓}
+  \begin{itemize}[label={}]
+    \item \todo 用 bleak 連 STM32、訂閱 Hit，收到事件就當成一次打擊
+    \item \todo 實作判定（良 $\pm$50 ms、可 $\pm$100 ms）、連擊數、分數
+    \item \todo 第一首歌的譜面（先選 BPM 穩定、節奏簡單的歌）
+  \end{itemize}
+\end{itemize}
+\textbf{完成標準}：拿一塊 STM32 往下敲，遊戲畫面上會出現判定。
+
+\section*{Week 13（11/30 -- 12/3）：咚／咔分類與雙板連線}
+
+\begin{itemize}[label={}]
+  \item \who{李健誌}
+  \begin{itemize}[label={}]
+    \item \todo 第二塊板子燒同一份韌體，用 user button 設定左手／右手
+    \item \todo 確認電腦端能同時連兩塊板子，兩邊事件都收得到
+  \end{itemize}
+  \item \who{黃琮堡}
+  \begin{itemize}[label={}]
+    \item \todo 依衝擊方向分咚／咔，三人各敲每種 30 次算準確率
+    \item \todo 準確率不到 90\% 就調門檻，或改用簡單決策樹
+  \end{itemize}
+  \item \who{莊景皓}
+  \begin{itemize}[label={}]
+    \item \todo 合併兩支鼓棒的事件，畫面分別顯示咚（紅）與咔（藍）
+    \item \todo 第一首歌可以從頭玩到尾，結束時顯示成績
+  \end{itemize}
+  \item \who{全組}
+  \begin{itemize}[label={}]
+    \item \todo 決定 Progress 報告週次（建議 Week 14），開始做投影片
+  \end{itemize}
+\end{itemize}
+\textbf{完成標準}：兩手各拿一塊板子，可以完整玩完第一首歌。
+
+\section*{Week 14（12/7 -- 12/10）：大音符、延遲校正與 Progress 報告}
+
+\begin{itemize}[label={}]
+  \item \who{李健誌}
+  \begin{itemize}[label={}]
+    \item \todo 用邏輯分析儀量「敲擊 GPIO 拉高 → BLE 送出」的板上延遲
+    \item \todo 實作 Config characteristic（電腦可寫入門檻、模式）
+  \end{itemize}
+  \item \who{黃琮堡}
+  \begin{itemize}[label={}]
+    \item \todo FIR 做 float32 與 q15 兩個版本，用 DWT cycle counter 比較執行時間與誤差
+  \end{itemize}
+  \item \who{莊景皓}
+  \begin{itemize}[label={}]
+    \item \todo 大音符判定：兩支鼓棒 40 ms 內同時打同一種
+    \item \todo 延遲校正模式：跟著節拍器敲，自動算出偏移量並套用
+  \end{itemize}
+  \item \who{全組}
+  \begin{itemize}[label={}]
+    \item \todo Progress and Technology 報告：系統架構、目前 demo、用到的技術與初步數據
+  \end{itemize}
+\end{itemize}
+\textbf{完成標準}：Progress 報告完；大音符與延遲校正可用；有 q15/float32 比較數據。
+
+\section*{Week 15（12/14 -- 12/17）：量測、補強與 demo 彩排}
+
+\begin{itemize}[label={}]
+  \item \who{全組}
+  \begin{itemize}[label={}]
+    \item \todo 用手機 240 fps 慢動作量端到端延遲（敲擊 → 畫面判定），每人至少 20 次
+    \item \todo 統計敲擊漏打／誤觸率、咚／咔準確率、大音符成功率，做成圖表
+    \item \todo 完整彩排 demo 兩次以上，準備備用方案（電池、充電線、備用板）
+  \end{itemize}
+  \item \who{李健誌}：\todo 處理斷線重連，確保 demo 時不會掉線
+  \item \who{黃琮堡}：\todo 依量測結果最後調整門檻
+  \item \who{莊景皓}：\todo 第二首歌的譜面、畫面特效與音效
+\end{itemize}
+\textbf{完成標準}：數據齊全；兩首歌都能穩定玩完；README 寫好使用說明。
+
+\section*{風險與備案}
+\noindent{\small\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} Y@{}}
+\toprule
+風險 & 備案 \\
+\midrule
+只有一塊板子 & 一塊板子負責咚／咔，大音符改成「力道大」判定 \\
+咚／咔分不準 & 改成左手固定咚、右手固定咔 \\
+BLE 延遲太大 & 加強延遲校正；必要時改用 USB 有線傳輸當 demo 備案 \\
+兩塊板子同時連線不穩 & 先用一塊板子完成整套 demo，再補第二塊 \\
+\bottomrule
+\end{tabularx}}
+
+\end{document}
